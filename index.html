@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>renworx | Fastly test site</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <h1 class="logo">renworx</h1>
+    <p class="tag">Fastly testing and simulation site</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="panel">
+    <h2>Target</h2>
+    <div class="row">
+      <label>Base URL <input id="base" type="text" spellcheck="false"></label>
+      <label class="chk"><input id="dbg" type="checkbox"> Send <code>Fastly-Debug: 1</code></label>
+      <button id="runAll" class="btn">Run all tests</button>
+      <button id="clear" class="btn ghost">Clear results</button>
+    </div>
+    <p class="note">Leave the base URL as-is to test whatever host served this page (localhost, your Fastly domain, or GitHub Pages). Headers from another origin are only readable if that origin sends CORS headers.</p>
+    <p id="env" class="note"></p>
+  </section>
+
+  <div id="groups"></div>
+
+  <section class="panel">
+    <h2>Image Optimizer preview</h2>
+    <p class="note">Same image requested with different Image Optimizer parameters. If IO is off, all four look identical.</p>
+    <div id="imgs" class="imgs"></div>
+  </section>
+</main>
+
+<footer class="wrap foot">renworx test site. Static files only; no real user data.</footer>
+<script src="app.js"></script>
+</body>
+</html>
