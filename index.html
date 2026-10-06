@@ -27,6 +27,34 @@
     <p id="env" class="note"></p>
   </section>
 
+  <section class="panel">
+    <h2>Manual payload box</h2>
+    <p class="note">Type anything — a SQLi string, an XSS tag, a traversal path — and send it as a query string, a login form field, or a custom header. Useful for payloads your WAF rules don't already cover below.</p>
+    <div class="row">
+      <label>Payload <input id="payload" type="text" spellcheck="false" placeholder="' OR '1'='1"></label>
+      <label>Send as
+        <select id="payloadMode">
+          <option value="query">Query string (?q=...)</option>
+          <option value="login">Login form field (username)</option>
+          <option value="header">Custom header (X-Test-Payload)</option>
+        </select>
+      </label>
+      <button id="sendPayload" class="btn">Send</button>
+    </div>
+    <div id="payloadOut" class="out"></div>
+  </section>
+
+  <section class="panel" id="loginPanel">
+    <h2>Login form (for ATO / credential stuffing)</h2>
+    <p class="note">Static demo form — nothing is authenticated. It exists so you can point login-protection rules (rate limiting, bot detection, WAF login-specific rules) at a real POST request.</p>
+    <div class="row">
+      <label>Username <input id="luser" type="text" value="test@renworx.test" spellcheck="false"></label>
+      <label>Password <input id="lpass" type="text" value="Password123!" spellcheck="false"></label>
+      <button id="loginOnce" class="btn">Submit once</button>
+    </div>
+    <div id="loginOut" class="out"></div>
+  </section>
+
   <div id="groups"></div>
 
   <section class="panel">

@@ -127,6 +127,43 @@
           for (let i = 0; i < N; i += C) await Promise.all(Array.from({ length: C }, one));
           return `Finished in ${Math.round(performance.now() - t0)} ms${kv(counts)}`;
         } },
+      { id: "ato", title: "Account takeover: credential stuffing burst", desc: "Posts 30 username/password pairs from a small list at the login path, back to back. Look for 429/403 once bot or rate-limit protection trips, and whether every attempt returns an identical response (good — doesn't leak which field was wrong).",
+        run: async (el) => {
+          const users = ["admin@renworx.test", "test@renworx.test", "user1@renworx.test"];
+          const pass = ["123456", "password", "Password123!", "qwerty", "letmein"];
+          const pairs = []; for (const u of users) for (const p of pass) pairs.push([u, p]);
+          const counts = {}, lens = new Set(); let done = 0;
+          for (const [u, p] of pairs) {
+            try {
+              const r = await req("login?" + bust(), { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}` });
+              counts[r.res.status] = (counts[r.res.status] || 0) + 1;
+              lens.add(r.res.headers.get("content-length") || "n/a");
+            } catch { counts.error = (counts.error || 0) + 1; }
+            done++; el.innerHTML = `Sent ${done}/${pairs.length}...`;
+          }
+          return `${pairs.length} attempts${kv(counts)}<p class="note">Distinct response sizes seen: ${lens.size} ${lens.size <= 1 ? "(consistent — good)" : "(varies — could help an attacker enumerate valid usernames)"}</p>`;
+        } },
+      { id: "atoslow", title: "Account takeover: low-and-slow", desc: "Same idea as the burst test, but one attempt every 2 seconds for 5 attempts — the pattern a naive rate limit (count-per-second) misses but a session/IP-based one should still catch.",
+        run: async (el) => {
+          const out = [];
+          for (let i = 1; i <= 5; i++) {
+            const r = await req("login?" + bust(), { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `username=test@renworx.test&password=attempt${i}` });
+            out.push(`attempt ${i}: ${line(r.res, r.ms)}`); el.innerHTML = out.join("<br>");
+            if (i < 5) await new Promise((res) => setTimeout(res, 2000));
+          }
+          return out.join("<br>");
+        } },
+      { id: "sqlilogin", title: "SQL injection in login fields", desc: "Submits classic auth-bypass SQLi payloads as the username, e.g. admin'--. A blocking WAF or login-specific rule should return 403/406.",
+        run: async () => {
+          const payloads = ["admin' --", "' OR '1'='1' --", "' OR 1=1#", "admin'/*"];
+          const out = [];
+          for (const p of payloads) {
+            const r = await req("login?" + bust(), { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `username=${encodeURIComponent(p)}&password=x` });
+            const blocked = [403, 406, 429].includes(r.res.status);
+            out.push(`${pill(blocked ? "BLOCKED" : "PASSED", blocked ? "ok" : "warn")} ${line(r.res, r.ms)} <code>${esc(p)}</code>`);
+          }
+          return out.join("<br>");
+        } },
       { id: "cors", title: "CORS preflight", desc: "Sends OPTIONS with CORS request headers and shows any Access-Control-* response headers.",
         run: async () => {
           const r = await req("assets/data.json", { method: "OPTIONS", headers: { "Access-Control-Request-Method": "GET" } });
@@ -171,6 +208,31 @@
   // Image Optimizer previews
   const ioList = [["Original", ""], ["width=300", "?width=300"], ["width=300 & format=webp", "?width=300&format=webp"], ["quality=20 & auto=webp", "?quality=20&auto=webp"]];
   $("#imgs").innerHTML = ioList.map(([c, q]) => `<figure><img loading="lazy" src="assets/sample.png${q}" alt="${c}"><figcaption>${c}<br><code>sample.png${q}</code></figcaption></figure>`).join("");
+
+  // Manual payload box
+  $("#sendPayload").addEventListener("click", async () => {
+    const val = $("#payload").value || "";
+    const mode = $("#payloadMode").value;
+    const out = $("#payloadOut");
+    out.innerHTML = "Sending...";
+    try {
+      let r;
+      if (mode === "query") r = await req("index.html?q=" + encodeURIComponent(val) + "&" + bust());
+      else if (mode === "login") r = await req("login?" + bust(), { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "username=" + encodeURIComponent(val) + "&password=x" });
+      else r = await req("index.html?" + bust(), { headers: { "X-Test-Payload": val } });
+      const blocked = [403, 406, 429].includes(r.res.status);
+      out.innerHTML = `${pill(blocked ? "BLOCKED" : "PASSED", blocked ? "ok" : "warn")} ${line(r.res, r.ms)}${kv(hdrs(r.res))}${allHdrs(r.res)}`;
+    } catch (e) { out.innerHTML = `${pill("ERROR", "bad")} ${esc(e.message)}`; }
+  });
+
+  // Single login submit
+  $("#loginOnce").addEventListener("click", async () => {
+    const out = $("#loginOut"); out.innerHTML = "Sending...";
+    try {
+      const r = await req("login?" + bust(), { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `username=${encodeURIComponent($("#luser").value)}&password=${encodeURIComponent($("#lpass").value)}` });
+      out.innerHTML = `${line(r.res, r.ms)}${kv(hdrs(r.res))}<p class="note">GitHub Pages can't process this POST (static hosting), so a 404/405 here is expected unless Fastly or Compute intercepts it. The point is to have a real request your login-protection rules can match on path/method.</p>`;
+    } catch (e) { out.innerHTML = `${pill("ERROR", "bad")} ${esc(e.message)}`; }
+  });
 
   $("#env").textContent = `Loaded from ${location.origin}. ` + (location.hostname.match(/localhost|127\.0\.0\.1/) ? "Local mode: no Fastly headers expected until you test through your Fastly domain." : "");
 })();
